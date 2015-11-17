@@ -11,6 +11,7 @@ exports.defineAutoTests = function() {
         });
 
         it("can sync", function(done){
+
         	var progressEvent = null;
         	var url = "https://github.com/timkim/zipTest/archive/master.zip";
         	var sync = ContentSync.sync({ src: url, id: 'myapps/myapp', type: 'replace', copyCordovaAssets: false, headers: false });
@@ -139,21 +140,6 @@ exports.defineAutoTests = function() {
                 expect(e).toBeDefined('error should be reported');
                 done();
             });
-        });
-
-    });
-
-    it('local w/o copy and source to fail', function(done) {
-        var sync = ContentSync.sync({
-            id: 'local/test' + (new Date()).getTime(), // create new id every time
-            type: 'local'
-        });
-        sync.on('complete', function() {
-            fail('because there is nothing to copy.');
-        });
-        sync.on('error', function(e) {
-            expect(e).toBeDefined('error should report a reason.');
-            done();
         });
     });
 
