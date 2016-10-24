@@ -1,4 +1,5 @@
 #import "ContentSync.h"
+#import <MobileCoreServices/MobileCoreServices.h>
 
 @implementation ContentSyncTask
 
@@ -19,9 +20,8 @@
 
 @implementation ContentSync
 
-- (CDVPlugin*)initWithWebView:(UIWebView*)theWebView {
+- (void)pluginInitialize {
     [NSURLProtocol registerClass:[NSURLProtocolNoCache class]];
-    return self;
 }
 
 - (CDVPluginResult*) preparePluginResult:(NSInteger)progress status:(NSInteger)status {
@@ -63,11 +63,10 @@
             return;
         }
     }
-
-    BOOL copyCordovaAssets = [[command argumentAtIndex:4 withDefault:@(NO)] boolValue];
+    
     BOOL copyRootApp = [[command argumentAtIndex:5 withDefault:@(NO)] boolValue];
 
-    if(copyRootApp == YES || copyCordovaAssets == YES) {
+    if(copyRootApp == YES) {
         CDVPluginResult *pluginResult = nil;
         NSError* error = nil;
 
@@ -86,13 +85,7 @@
             pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsInt:LOCAL_ERR];
             NSLog(@"%@", [error localizedDescription]);
         } else {
-            if(copyRootApp) {
-                NSLog(@"Copying Root App");
-                [self copyCordovaAssets:[appPath path] copyRootApp:YES];
-            } else {
-                NSLog(@"Copying Cordova Assets");
-                [self copyCordovaAssets:[appPath path] copyRootApp:NO];
-            }
+            [self copyCordovaAssets:[appPath path] copyRootApp:YES];
             if(src == nil) {
                 NSMutableDictionary* message = [NSMutableDictionary dictionaryWithCapacity:2];
                 [message setObject:[appPath path] forKey:@"localPath"];
@@ -145,13 +138,11 @@
     NSURL *srcURL = [NSURL URLWithString:src];
     NSMutableURLRequest *urlRequest = [NSMutableURLRequest requestWithURL:srcURL];
     [urlRequest setHTTPMethod:@"HEAD"];
-    NSURLResponse *response = nil;
+    NSHTTPURLResponse *response = nil;
     NSError *error = nil;
-    NSData *data = [NSURLConnection sendSynchronousRequest:urlRequest
-                                         returningResponse:&response
-                                                     error:&error];
-
-    if(srcURL && srcURL.scheme && srcURL.host && error == nil) {
+    [NSURLConnection sendSynchronousRequest:urlRequest returningResponse:&response error:&error];
+    
+    if(srcURL && srcURL.scheme && srcURL.host && error == nil && response.statusCode < 400) {
 
         BOOL trustHost = [command argumentAtIndex:7 withDefault:@(NO)];
 
@@ -309,14 +300,6 @@
                 NSURL *extractURL = [libraryDirectory URLByAppendingPathComponent:[@"NoCloud" stringByAppendingPathComponent:[sTask appId]]];
                 NSString* type = [sTask.command argumentAtIndex:2 withDefault:@"replace"];
 
-                // copy root app right before we extract
-                if([[[sTask command] argumentAtIndex:5 withDefault:@(NO)] boolValue] == YES) {
-                    NSLog(@"Copying Cordova Root App to %@ as requested", [extractURL path]);
-                    if(![self copyCordovaAssets:[extractURL path] copyRootApp:YES]) {
-                        NSLog(@"Error copying Cordova Root App");
-                    };
-                }
-
                 CDVInvokedUrlCommand* command = [CDVInvokedUrlCommand commandFromJson:[NSArray arrayWithObjects:sTask.command.callbackId, @"Zip", @"unzip", [NSMutableArray arrayWithObjects:[sourceURL absoluteString], [extractURL absoluteString], type, nil], nil]];
                 [self unzip:command];
             } else {
@@ -332,11 +315,10 @@
                     NSLog(@"Moving %@ to %@", [srcURL path], [dstURL path]);
 
                     success = [fileManager moveItemAtURL:srcURL toURL:dstURL error:&errorCopy];
-                    if(success) {
-                        sTask.archivePath = [dstURL path];
-                    } else {
-                        NSLog(@"Error Moving :-( but this can be non FATAL %@", [errorCopy description]);
+                    if(!success) {
+                        NSLog(@"Error copying. File might already exist %@", [errorCopy description]);
                     }
+                    sTask.archivePath = [dstURL path];
                     sTask.extractArchive = NO;
                 } else {
                     NSLog(@"Unable to create ID :-[ %@", [error description]);
@@ -361,7 +343,7 @@
 
         if(error == nil) {
             if([(NSHTTPURLResponse*)[task response] statusCode] != 200) {
-                NSLog(@"Task: %@ completed with HTTP Error Code: %ld", task, [(NSHTTPURLResponse*)[task response] statusCode]);
+                NSLog(@"Task: %@ completed with HTTP Error Code: %ld", task, (long)[(NSHTTPURLResponse*)[task response] statusCode]);
                 pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsInt:CONNECTION_ERR];
                 NSFileManager *fileManager = [NSFileManager defaultManager];
                 if([fileManager fileExistsAtPath:[sTask archivePath]]) {
@@ -462,6 +444,12 @@
     NSLog(@"unzipped path %@", unzippedPath);
     ContentSyncTask* sTask = [self findSyncDataByPath];
     if(sTask) {
+        
+        BOOL copyCordovaAssets = [[sTask.command argumentAtIndex:4 withDefault:@(NO)] boolValue];
+        
+        if(copyCordovaAssets == YES) {
+            [self copyCordovaAssets:unzippedPath];
+        }
         // XXX this is to match the Android implementation
         CDVPluginResult* pluginResult = [self preparePluginResult:100 status:Complete];
         [pluginResult setKeepCallbackAsBool:YES];
@@ -504,6 +492,7 @@
     NSURL* destinationURL = [NSURL fileURLWithPath:unzippedPath];
 
     if(copyRootApp == YES) {
+        NSLog(@"Copying Root App");
         // we use cordova.js as a way to find the root www/
         NSString* root = [[[self commandDelegate] pathForResource:@"cordova.js"] stringByDeletingLastPathComponent];
 
@@ -517,7 +506,7 @@
 
         return YES;
     }
-
+    NSLog(@"Copying Cordova Assets");
     NSArray* cordovaAssets = [NSArray arrayWithObjects:@"cordova.js",@"cordova_plugins.js",@"plugins", nil];
     NSString* suffix = @"/www";
 
@@ -539,6 +528,19 @@
 
     return YES;
 }
+
+#ifdef __CORDOVA_4_0_0
+- (void)loadUrl:(CDVInvokedUrlCommand*) command {
+    NSString* url = [command argumentAtIndex:0 withDefault:nil];
+    if(url != nil) {
+        NSLog(@"Loading URL %@", url);
+        NSURLRequest* request = [NSURLRequest requestWithURL:[NSURL URLWithString:url]];
+        [self.webViewEngine loadRequest:request];
+    } else {
+        NSLog(@"URL IS NIL");
+    }
+}
+#endif
 
 - (NSURLSession*) backgroundSession:(NSNumber*)timeout {
     static NSURLSession *session = nil;
@@ -609,13 +611,20 @@
 - (void)startLoading {
     NSData *data = [NSData dataWithContentsOfFile:self.request.URL.path];
 
-    // add the no-cache HEADERs to the request while preserving the existing HEADER values.
-    NSDictionary *headers = [NSDictionary dictionaryWithObjectsAndKeys:
-                             [self.request.allHTTPHeaderFields objectForKey:@"Accept"], @"Accept",
-                             @"no-cache", @"Cache-Control",
-                             @"no-cache", @"Pragma",
-                             [NSString stringWithFormat:@"%d", (int)[data length]], @"Content-Length",
-                             nil];
+    // Whether as a bug or intentionally, it seems that as of iOS 10 the response's MIME Type is
+    // defaulting to 'application/octet-stream' for most files. For now we can set it manually.
+    // MIME lookup taken from:
+    // http://stackoverflow.com/questions/1363813/how-can-you-read-a-files-mime-type-in-objective-c/21858677#21858677
+    NSString *fileExtension = self.request.URL.pathExtension;
+    NSString *UTI = (__bridge_transfer NSString *)UTTypeCreatePreferredIdentifierForTag(kUTTagClassFilenameExtension, (__bridge CFStringRef)fileExtension, NULL);
+    NSString *contentType = (__bridge_transfer NSString *)UTTypeCopyPreferredTagWithClass((__bridge CFStringRef)UTI, kUTTagClassMIMEType);
+
+    // add the no-cache and MIME HEADERs to the request while preserving the existing HEADER values.
+    NSMutableDictionary *headers = [NSMutableDictionary dictionaryWithDictionary:self.request.allHTTPHeaderFields];
+    headers[@"Cache-Control"] = @"no-cache";
+    headers[@"Pragma"] = @"no-cache";
+    headers[@"Content-Length"] = [NSString stringWithFormat:@"%d", (int)[data length]];
+    headers[@"Content-Type"] = contentType;
 
     // create a response using the request and our new HEADERs
     NSHTTPURLResponse *response = [[NSHTTPURLResponse alloc] initWithURL:self.request.URL
