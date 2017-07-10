@@ -417,8 +417,6 @@ didFinishDownloadingToURL:(NSURL*) downloadURL {
         ContentSyncTask* sTask = [self findSyncDataByDownloadTask:downloadTask];
         if (sTask) {
             sTask.archivePath = [sourceURL path];
-            NSLog(@"Downloaded %@ and moved to %@ (%@)", originalURL, sTask.archivePath);
-            
             if (sTask.extractArchive && [self isZipArchive:[sourceURL path]]) {
                 // FIXME there is probably a better way to do this
                 NSURL* extractURL = [storageDirectory URLByAppendingPathComponent:[sTask appId]];
@@ -484,7 +482,7 @@ didCompleteWithError:(NSError*) error {
                 [self removeSyncTask:sTask];
             } else {
                 double progress = (double) task.countOfBytesReceived / (double) task.countOfBytesExpectedToReceive;
-                NSLog(@"Task: %@ completed successfully (%@)", sTask.archivePath, sTask.extractArchive ? @"YES" : @"NO");
+                NSLog(@"Task: %@ completed successfully", sTask.archivePath);
                 if (sTask.extractArchive) {
                     progress = ((progress / 2) * 100);
                     pluginResult = [self preparePluginResult:(NSInteger) progress status:Downloading];
@@ -542,21 +540,18 @@ didCompleteWithError:(NSError*) error {
 
         @try {
             NSError* error;
-            NSLog(@"unzipFileAtPath:%@ toDestination:%@", [sourceURL path], [destinationURL path]);
             if (![SSZipArchive unzipFileAtPath:[sourceURL path] toDestination:[destinationURL path] overwrite:YES password:nil error:&error delegate:weakSelf]) {
                 NSLog(@"%@ - %@", @"Error occurred during unzipping", [error localizedDescription]);
                 pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsInt:UNZIP_ERR];
             } else {
                 pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK];
                 // clean up zip archive
-                NSLog(@"clean up zip archive: %@", sourceURL);
                 [fileManager removeItemAtURL:sourceURL error:NULL];
 
             }
         }
         @catch (NSException* exception) {
             NSLog(@"%@ - %@", @"Error occurred during unzipping", [exception debugDescription]);
-            // remove task?
             pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsInt:UNZIP_ERR];
         }
         [pluginResult setKeepCallbackAsBool:YES];
@@ -568,7 +563,6 @@ didCompleteWithError:(NSError*) error {
 }
 
 - (void) zipArchiveWillUnzipArchiveAtPath:(NSString*) path zipInfo:(unz_global_info) zipInfo {
-    NSLog(@"set currentPath to: %@", path);
     self.currentPath = path;
 }
 
@@ -586,8 +580,8 @@ didCompleteWithError:(NSError*) error {
 }
 
 - (void) zipArchiveDidUnzipArchiveAtPath:(NSString*) path zipInfo:(unz_global_info) zipInfo unzippedPath:(NSString*) unzippedPath {
+    NSLog(@"unzipped path %@", unzippedPath);
     ContentSyncTask* sTask = [self findSyncDataByArchivePath:path];
-    NSLog(@"unzipped %@ to path %@", sTask.archivePath, unzippedPath);
     if (sTask) {
         BOOL copyCordovaAssets = [[[sTask command] argumentAtIndex:4 withDefault:@(NO)] boolValue];
         BOOL copyRootApp = [[[sTask command] argumentAtIndex:5 withDefault:@(NO)] boolValue];
