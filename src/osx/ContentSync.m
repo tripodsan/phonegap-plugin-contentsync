@@ -222,8 +222,8 @@
         if (downloadURL == nil) {
             pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsInt:INVALID_URL_ERR];
 
-        } else if ([self findSyncDataByAppId:appId]) {
-            NSLog(@"Download task already started for %@", appId);
+        } else if ([self findSyncDataBySrc:src]) {
+            NSLog(@"Download task already started for %@", src);
             pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsInt:IN_PROGRESS_ERR];
 
         } else {
@@ -267,10 +267,10 @@
 }
 
 - (void) cancel:(CDVInvokedUrlCommand*) command __unused {
-    NSString* appId = [command argumentAtIndex:0 withDefault:nil];
-    NSLog(@"Cancelling download %@", appId);
-    if (appId) {
-        ContentSyncTask* sTask = [self findSyncDataByAppId:appId];
+    NSString* src = [command argumentAtIndex:0 withDefault:nil];
+    NSLog(@"Cancelling download %@", src);
+    if (src) {
+        ContentSyncTask* sTask = [self findSyncDataBySrc:src];
         if (sTask) {
             CDVPluginResult* pluginResult = nil;
             [[sTask downloadTask] cancel];
@@ -298,7 +298,7 @@
 - (ContentSyncTask*) findSyncDataByDownloadTask:(NSURLSessionDownloadTask*) downloadTask {
     @synchronized (self) {
         for (ContentSyncTask* sTask in syncTasks) {
-            if (sTask.downloadTask == downloadTask) {
+            if ([sTask.downloadTask isEqual:downloadTask]) {
                 return sTask;
             }
         }
@@ -317,10 +317,21 @@
     }
 }
 
-- (ContentSyncTask*) findSyncDataByAppId:(NSString*) appId {
+- (ContentSyncTask*) findSyncDataByArchivePath:(NSString*) archivePath {
     @synchronized (self) {
         for (ContentSyncTask* sTask in syncTasks) {
-            if ([sTask.appId isEqualToString:appId]) {
+            if ([sTask.archivePath isEqualToString:archivePath]) {
+                return sTask;
+            }
+        }
+        return nil;
+    }
+}
+
+- (ContentSyncTask*) findSyncDataBySrc:(NSString*) src {
+    @synchronized (self) {
+        for (ContentSyncTask* sTask in syncTasks) {
+            if ([[sTask.command argumentAtIndex:0] isEqualToString:src]) {
                 return sTask;
             }
         }
@@ -393,7 +404,10 @@ didFinishDownloadingToURL:(NSURL*) downloadURL {
     NSURL* storageDirectory = [ContentSync getStorageDirectory];
 
     NSURL* originalURL = [[downloadTask originalRequest] URL];
-    NSURL* sourceURL = [storageDirectory URLByAppendingPathComponent:[originalURL lastPathComponent]];
+    NSString* originalLastComponent = [originalURL lastPathComponent];
+    NSString* randomString = [[NSNumber numberWithInt:arc4random_uniform(100000)] stringValue];
+    NSURL* sourceURL = [storageDirectory URLByAppendingPathComponent:
+                        [NSString stringWithFormat:@"%@%@%@", @"tmp", randomString, originalLastComponent]];
     NSError* errorCopy;
 
     [fileManager removeItemAtURL:sourceURL error:NULL];
@@ -566,7 +580,7 @@ didCompleteWithError:(NSError*) error {
 
 - (void) zipArchiveDidUnzipArchiveAtPath:(NSString*) path zipInfo:(unz_global_info) zipInfo unzippedPath:(NSString*) unzippedPath {
     NSLog(@"unzipped path %@", unzippedPath);
-    ContentSyncTask* sTask = [self findSyncDataByPath];
+    ContentSyncTask* sTask = [self findSyncDataByArchivePath:path];
     if (sTask) {
         BOOL copyCordovaAssets = [[[sTask command] argumentAtIndex:4 withDefault:@(NO)] boolValue];
         BOOL copyRootApp = [[[sTask command] argumentAtIndex:5 withDefault:@(NO)] boolValue];
