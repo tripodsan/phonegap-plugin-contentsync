@@ -569,7 +569,6 @@ didCompleteWithError:(NSError*) error {
 - (void) zipArchiveProgressEvent:(NSInteger) loaded total:(NSInteger) total {
     ContentSyncTask* sTask = [self findSyncDataByPath];
     if (sTask) {
-        NSLog(@"zipArchiveProgressEvent: %@", sTask.archivePath);
         //NSLog(@"Extracting %ld / %ld", (long)loaded, (long)total);
         double progress = ((double) loaded / (double) total);
         progress = (sTask.extractArchive ? ((0.5 + progress / 2) * 100) : progress * 100);
