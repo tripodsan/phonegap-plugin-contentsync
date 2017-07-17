@@ -52,6 +52,9 @@ typedef NSUInteger ErrorCodes;
 
 @interface ContentSync : CDVPlugin <NSURLSessionDelegate, NSURLSessionTaskDelegate, NSURLSessionDownloadDelegate>
 
+@property (nonatomic) NSString* currentPath;
+@property (nonatomic) NSMutableArray *syncTasks;
+@property (nonatomic) NSURLSession* session;
 @property (nonatomic) NSMutableArray* trustedHosts;
 
 - (void) sync:(CDVInvokedUrlCommand*)command;
