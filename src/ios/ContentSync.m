@@ -279,14 +279,6 @@
             pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsInt:IN_PROGRESS_ERR];
 #endif
         } else {
-            NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:downloadURL];
-            request.timeoutInterval = 15.0;
-
-            [self setHeaders:request :headers];
-
-            NSURLSessionDownloadTask *downloadTask = [self.session downloadTaskWithRequest:request];
-
-        } else {
             ContentSyncTask* sData = [[ContentSyncTask alloc] init];
 
             sData.appId = appId;
