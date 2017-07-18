@@ -279,44 +279,34 @@
             pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsInt:IN_PROGRESS_ERR];
 #endif
         } else {
-            NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:downloadURL];
-            request.timeoutInterval = 15.0;
-
-            [self setHeaders:request :headers];
-
-            NSURLSessionDownloadTask *downloadTask = [self.session downloadTaskWithRequest:request];
-
             ContentSyncTask* sData = [[ContentSyncTask alloc] init];
+            sData.appId = appId ? appId : [srcURL lastPathComponent];
 
-            sData.appId = appId;
-            sData.downloadTask = downloadTask;
             sData.command = command;
             sData.progress = 0;
             sData.extractArchive = extractArchive;
 
+#if !TARGET_OS_IOS // this is currently not added to ios. see issue-96
             if (![self addSyncTask:sData]) {
                 NSLog(@"Download task already started for %@", appId);
                 pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsInt:IN_PROGRESS_ERR];
 
             } else {
+#endif
                 NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:downloadURL];
                 request.timeoutInterval = 15.0;
 
-                // Setting headers
-                NSDictionary *headers = [command argumentAtIndex:3 withDefault:nil andClass:[NSDictionary class]];
-                if(headers != nil) {
-                    for (NSString* header in [headers allKeys]) {
-                        NSLog(@"Setting header %@ %@", header, [headers objectForKey:header]);
-                        [request addValue:[headers objectForKey:header] forHTTPHeaderField:header];
-                    }
-                }
-
+                [self setHeaders:request :headers];
+                
                 // create download task and start downloading
                 sData.downloadTask = [self.session downloadTaskWithRequest:request];
                 [sData.downloadTask resume];
 
                 pluginResult = [self preparePluginResult:sData.progress status:Downloading];
+
+#if !TARGET_OS_IOS // this is currently not added to ios. see issue-96
             }
+#endif
 
             pluginResult = [self preparePluginResult:sData.progress status:Downloading];
             [pluginResult setKeepCallbackAsBool:YES];
@@ -359,7 +349,7 @@
     }
 }
 
-(bool) addSyncTask:(ContentSyncTask*) task {
+- (bool) addSyncTask:(ContentSyncTask*) task {
     @synchronized (self) {
         if (!self.syncTasks) {
             self.syncTasks = [NSMutableArray array];
@@ -624,8 +614,8 @@
 
 }
 
-- (void)zipArchiveProgressEvent:(unsigned long long)loaded total:(unsigned long long)total {
-    ContentSyncTask* sTask = [self findSyncDataByPath];
+- (void) zipArchiveProgressEvent:(NSInteger)loaded total:(NSInteger)total archivePath:(NSString*) path {
+    ContentSyncTask* sTask = [self findSyncDataByPath: path];
     if(sTask) {
         //NSLog(@"Extracting %ld / %ld", (long)loaded, (long)total);
         double progress = ((double)loaded / (double)total);
