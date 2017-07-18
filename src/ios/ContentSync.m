@@ -393,10 +393,10 @@
     }
 }
 
-- (ContentSyncTask*) findSyncDataByPath {
+- (ContentSyncTask*) findSyncDataByPath: (NSString*) path {
     @synchronized (self) {
         for (ContentSyncTask* sTask in self.syncTasks) {
-            if ([sTask.archivePath isEqualToString:[self currentPath]]) {
+            if ([sTask.archivePath isEqualToString:path]) {
                 return sTask;
             }
         }
