@@ -312,7 +312,7 @@
                 }
 
                 // create download task and start downloading
-                sData.downloadTask = [session downloadTaskWithRequest:request];
+                sData.downloadTask = [self.session downloadTaskWithRequest:request];
                 [sData.downloadTask resume];
 
                 pluginResult = [self preparePluginResult:sData.progress status:Downloading];
@@ -359,12 +359,20 @@
     }
 }
 
-- (void) addSyncTask:(ContentSyncTask*) task {
+(bool) addSyncTask:(ContentSyncTask*) task {
     @synchronized (self) {
         if (!self.syncTasks) {
             self.syncTasks = [NSMutableArray array];
+        } else {
+            // check if task with the same id already exists
+            for (ContentSyncTask* sTask in self.syncTasks) {
+                if ([sTask.appId isEqualToString:task.appId]) {
+                    return false;
+                }
+            }
         }
         [self.syncTasks addObject:task];
+        return true;
     }
 };
 
