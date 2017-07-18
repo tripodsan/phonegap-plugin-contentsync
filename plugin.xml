@@ -67,28 +67,27 @@
     <framework src="libz.dylib"/>
   </platform>  
   <platform name="osx">
-    <source-file src="src/osx/ContentSync.m" />
-    <header-file src="src/osx/ContentSync.h" />
-    <source-file src="src/osx/SSZipArchive.m" target-dir="minizip" />
-    <header-file src="src/osx/SSZipArchive.h" target-dir="minizip" />
-    <source-file src="src/osx/minizip/zip.c" target-dir="minizip" />
-    <header-file src="src/osx/minizip/zip.h" target-dir="minizip" />
-    <source-file src="src/osx/minizip/unzip.c" target-dir="minizip" />
-    <header-file src="src/osx/minizip/unzip.h" target-dir="minizip" />
-    <source-file src="src/osx/minizip/mztools.c" target-dir="minizip" />
-    <header-file src="src/osx/minizip/mztools.h" target-dir="minizip" />
-    <source-file src="src/osx/minizip/ioapi.c" target-dir="minizip" />
-    <header-file src="src/osx/minizip/ioapi.h" target-dir="minizip" />
-    <header-file src="src/osx/minizip/crypt.h" target-dir="minizip" />
+    <source-file src="src/ios/ContentSync.m"/>
+    <source-file src="src/ios/SSZipArchive.m" target-dir="minizip"/>
+    <source-file src="src/ios/minizip/zip.c" target-dir="minizip"/>
+    <source-file src="src/ios/minizip/unzip.c" target-dir="minizip"/>
+    <source-file src="src/ios/minizip/mztools.c" target-dir="minizip"/>
+    <source-file src="src/ios/minizip/ioapi.c" target-dir="minizip"/>
+    <header-file src="src/ios/ContentSync.h"/>
+    <header-file src="src/ios/SSZipArchive.h" target-dir="minizip"/>
+    <header-file src="src/ios/minizip/zip.h" target-dir="minizip"/>
+    <header-file src="src/ios/minizip/unzip.h" target-dir="minizip"/>
+    <header-file src="src/ios/minizip/mztools.h" target-dir="minizip"/>
+    <header-file src="src/ios/minizip/ioapi.h" target-dir="minizip"/>
+    <header-file src="src/ios/minizip/crypt.h" target-dir="minizip"/>
     <config-file target="config.xml" parent="/*">
       <feature name="Sync">
-        <param name="ios-package" value="ContentSync" />
+        <param name="osx-package" value="ContentSync"/>
       </feature>
       <feature name="Zip">
-        <param name="ios-package" value="ContentSync" />
+        <param name="osx-package" value="ContentSync"/>
       </feature>
     </config-file>
-    <framework src="libz.dylib" />
-    <framework src="libz.tbd" />
+    <framework src="libz.dylib"/>
   </platform>
 </plugin>
