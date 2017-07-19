@@ -761,7 +761,7 @@
 @end
 
 
-@implementation ContentSyncZipDelegate {
+@implementation ContentSyncZipDelegate : NSObject {
     ContentSync* parent;
     ContentSyncTask* task;
 }
