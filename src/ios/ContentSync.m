@@ -281,18 +281,16 @@
         } else {
             ContentSyncTask* sData = [[ContentSyncTask alloc] init];
             sData.appId = appId ? appId : [srcURL lastPathComponent];
-
             sData.command = command;
             sData.progress = 0;
             sData.extractArchive = extractArchive;
 
-#if !TARGET_OS_IOS // this is currently not added to ios. see issue-96
             if (![self addSyncTask:sData]) {
                 NSLog(@"Download task already started for %@", appId);
                 pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsInt:IN_PROGRESS_ERR];
 
             } else {
-#endif
+
                 NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:downloadURL];
                 request.timeoutInterval = 15.0;
 
@@ -303,13 +301,7 @@
                 [sData.downloadTask resume];
 
                 pluginResult = [self preparePluginResult:sData.progress status:Downloading];
-
-#if !TARGET_OS_IOS // this is currently not added to ios. see issue-96
             }
-#endif
-
-            pluginResult = [self preparePluginResult:sData.progress status:Downloading];
-            [pluginResult setKeepCallbackAsBool:YES];
         }
 
     } else {

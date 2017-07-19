@@ -33,9 +33,7 @@ enum ErrorCodes {
     CONNECTION_ERR,
     UNZIP_ERR,
     LOCAL_ERR,
-#if !TARGET_OS_IOS // this is currently not added to ios. see issue-96
     IN_PROGRESS_ERR,
-#endif
 };
 typedef NSUInteger ErrorCodes;
 
