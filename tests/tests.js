@@ -1,8 +1,9 @@
-
-
 exports.defineAutoTests = function() {
 
+jasmine.DEFAULT_TIMEOUT_INTERVAL = 30000;
+
     describe('phonegap-plugin-contentsync', function() {
+
         it("should exist", function() {
             expect(window.ContentSync).toBeDefined();
             expect(typeof window.ContentSync.sync == 'function').toBe(true);
@@ -10,31 +11,53 @@ exports.defineAutoTests = function() {
             expect(typeof window.ContentSync.unzip == 'function').toBe(true);
         });
 
-        it("can sync", function(done){
+        function syncArchive(url, done) {
 
-        	var progressEvent = null;
-        	var url = "https://github.com/timkim/zipTest/archive/master.zip";
-        	var sync = ContentSync.sync({ src: url, id: 'myapps/myapp', type: 'replace', copyCordovaAssets: false, headers: false });
+            var progressEvent = null;
+            //var url = "https://github.com/timkim/zipTest/archive/master.zip";
+            var sync = ContentSync.sync({ src: url, id: 'myapps/myapp', type: 'replace', copyCordovaAssets: false, headers: false });
 
-	        sync.on('progress', function(progress) {
-	            if(!progressEvent) {
-	            	progressEvent = progress;
-	            }
-	        });
 
-	        sync.on('complete', function(data) {
-	        	expect(progressEvent).toBeDefined("Progress should have been received");
-	        	expect(progressEvent.status).toBeDefined("Progress event should have a status prop");
-	        	expect(progressEvent.progress).toBeDefined("Progress event should have a progress prop");
-	        	expect(data).toBeDefined("On complete, data is not null");
-	        	done();
-	        });
+            sync.on('progress', function(progress) {
+                //console.log("in progress callback " + Object.getOwnPropertyNames(progress));
+                //console.log("onProgress :: " + progress.progress + " status = " + progress.status);
+                if(!progressEvent) {
+                    progressEvent = progress;
+                }
+            });
 
-	        sync.on('error', function(e) {
-                fail(e);
+            sync.on('complete', function(data) {
+                //console.log("progress = " + progressEvent);
+                expect(progressEvent).toBeDefined("Progress should have been received");
+
+                //console.log("progressEvent.status = " + progressEvent.status);
+                expect(progressEvent.status).toBeDefined("Progress event should have a status prop");
+
+                expect(progressEvent.progress).toBeDefined("Progress event should have a progress prop");
+                //console.log("progressEvent.progress = " + progressEvent.progress);
+
+                //console.log("data = " + data);
+                expect(data).toBeDefined("On complete, data is not null");
                 done();
-	        });
+            });
 
+            sync.on('error', function (e) {
+                expect(progressEvent).toBeDefined("Progress should have been received");
+                expect(e).toBe(null, "Error callback was called :: " + e);
+                //console.log("got error back :: " + e);
+                done();
+            });
+
+        }
+
+        it("can sync archive without www folder at root", function(done){
+            var url = "http://localhost:4321/www1.zip";
+            syncArchive(url, done);
+        }, 60000); // wait a full 60 secs
+
+        it("can sync archive with www folder at root", function(done){
+            var url = "http://localhost:4321/www2.zip";
+            syncArchive(url, done);
         }, 60000); // wait a full 60 secs
 
         it('reports error on 404', function(done){
@@ -84,21 +107,23 @@ exports.defineAutoTests = function() {
                 type: 'local',
                 copyRootApp: true
             });
-            sync.on('complete', function(data) {
-                if (useLocalPath) {
+            sync.on('complete', function (data) {
+                if (useLocalPath && cordova.platformId !== 'windows') {
                     testFileExists('file://' + data.localPath + '/index.html', success, fail);
                 } else {
                     testFileExists(appId + '/index.html', success, fail);
                 }
             });
-            sync.on('error', fail);
+            sync.on('error', function (e) {
+                fail();
+            });
         }
 
         /**
          * Tests if the local copy is at the correct place and can be accessed via file plugin.
          */
         it('local copy is accessible via file plugin', function(done) {
-            var appId = 'local/test' + (new Date()).getTime(); // create new id every time
+            var appId = 'test' + (new Date()).getTime(); // create new id every time
             syncAndTest(appId, false, done, function(e){
                 fail(e);
                 done();
@@ -175,6 +200,67 @@ exports.defineAutoTests = function() {
         }, 60000); // wait a full 60 secs
 
     });
+
+    if(cordova.platformId == 'windows') {
+        describe('phonegap-plugin-contentsync windows tests', function() {
+            it("Has linked C# code", function(done){
+                //
+                expect(ZipWinProj).toBeDefined("ZipWinProj should exist");
+                expect(ZipWinProj.PGZipInflate)
+                    .toBeDefined("ZipWinProj.PGZipInflate should exist");
+                expect(ZipWinProj.PGZipInflate.inflateAsync)
+                    .toBeDefined("ZipWinProj.PGZipInflate.inflateAsync should exist");
+                done();
+            });
+
+        });
+    }
+
+    if (cordova.platformId === 'osx') {
+        it("syncing the same id concurrently should fail", function(done) {
+
+            var url = "https://github.com/timkim/zipTest/archive/master.zip";
+            var sync1 = ContentSync.sync({
+                src: url,
+                id: 'myapps/myapp',
+                type: 'replace',
+                copyCordovaAssets: false,
+                headers: false
+            });
+            var sync2 = ContentSync.sync({
+                src: url,
+                id: 'myapps/myapp',
+                type: 'replace',
+                copyCordovaAssets: false,
+                headers: false
+            });
+
+            var numFinished = 0;
+
+            sync1.on('complete', function(data) {
+                expect(data).toBeDefined("On complete, data is not null");
+                if (++numFinished == 2) {
+                    done();
+                }
+            });
+            sync1.on('error', function(e) {
+                fail(e);
+                done();
+            });
+
+            sync2.on('complete', function(data) {
+                fail('syncing concurrently the same id should fail.');
+                done();
+            });
+            sync2.on('error', function(e) {
+                expect(e).toEqual(5);
+                if (++numFinished == 2) {
+                    done();
+                }
+            });
+
+        }, 60000); // wait a full 60 secs
+    }
 
 };
 

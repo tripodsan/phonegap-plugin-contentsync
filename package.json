@@ -1,7 +1,7 @@
 {
     "name": "phonegap-plugin-contentsync",
     "description": "Fetch and cache content for your PhoneGap app.",
-    "version": "1.2.2",
+    "version": "1.3.6",
     "homepage": "http://github.com/phonegap/phonegap-plugin-contentsync#readme",
     "repository": {
         "type": "git",
@@ -37,14 +37,16 @@
       {
         "name": "cordova",
         "version": ">=3.0.0"
-      }
-    ],
-    "author": "Adobe PhoneGap Team",
-    "license": "APL",
-    "scripts": {
-        "test": "jasmine-node --color spec"
-    },
-    "devDependencies": {
-        "jasmine-node": "1.14.5"
     }
+  ],
+  "author": "Adobe PhoneGap Team",
+  "license": "APL",
+  "scripts": {
+    "test": "jasmine-node --color spec",
+    "paramedic": "./tests/scripts/start-server.sh && cordova-paramedic --platform ios && ./tests/scripts/stop-server.sh"
+  },
+  "devDependencies": {
+    "jasmine-node": "1.14.5",
+    "pluginpub": "0.0.6"
+  }
 }
