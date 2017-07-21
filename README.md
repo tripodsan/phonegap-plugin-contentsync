@@ -1,6 +1,6 @@
 #phonegap-plugin-contentsync [![Build Status](https://travis-ci.org/phonegap/phonegap-plugin-contentsync.svg?branch=master)](https://travis-ci.org/phonegap/phonegap-plugin-contentsync) [![bitHound Score][bithound-img]][bithound-url]
 
-> Download and cache remotely hosted content.
+> Download and cache remotely hosted zipped content bundles, unzipping automatically.
 
 ## Installation
 
@@ -26,7 +26,13 @@ phonegap plugin add https://github.com/phonegap/phonegap-plugin-contentsync
 ## Quick Example
 
 ```javascript
-var sync = ContentSync.sync({ src: 'http://myserver/assets/movie-1', id: 'movie-1' });
+// Create a new instance of ContentSync pointing to zipped resource 'movie-1.zip' - note
+// that the url need not end in zip - it just needs to point to something producing
+// a application/octet-stream mime type
+var sync = ContentSync.sync({
+        src: 'https://myserver/assets/movie-1.zip',
+        id: 'movie-1'
+});
 
 sync.on('progress', function(data) {
     // data.progress
@@ -45,21 +51,26 @@ sync.on('cancel', function() {
 });
 ```
 
+#### Security note:
+
+For updating a production app using `ContentSync.sync`, **always** use HTTPS. [Other Updaters](https://sparkle-project.github.io/documentation/security/#http-mitm-vulnerability) have had vulnerabilities exposed when updating over insecure HTTP.
+
 ## API
 
 ### ContentSync.sync(options)
 
 Parameter | Description
 --------- | ------------
-`options.src` | `String` URL to the remotely hosted content.
+`options.src` | `String` URL to the remotely hosted content. For updates in production, this URL should *always* use HTTPS
 `options.id` | `String` Unique identifer to reference the cached content.
 `options.type` | `String` _(Optional)_ Defines the copy strategy for the cached content.<br/>The type `replace` is the default behaviour that deletes the old content and caches the new content.<br/> The type `merge` will add the new content to the existing content. This will replace existing files, add new files, but never delete files.<br/>The type `local` returns the full path to the cached content if it exists or downloads it from `options.src` if it doesn't. `options.src` is not required if cached content actually exists.
 `options.headers` | `Object` _(Optional)_ Set of headers to use when requesting the remote content from `options.src`.
 `options.copyCordovaAssets` | `Boolean` _(Optional)_ Copies `cordova.js`, `cordova_plugins.js` and `plugins/` to sync'd folder. This operation happens after the source content has been cached, so it will override any existing Cordova assets. Default is `false`.
 `options.copyRootApp` | `Boolean` _(Optional)_ Copies the `www` folder to sync'd folder. This operation happens before the source content has been cached, then the source content is cached and finally it copies `cordova.js`, `cordova_plugins.js` and `plugins/` to sync'd folder to remain consistent with the installed plugins. Default is `false`.
-`options.timeout` | `Double` _(Optional)_ Request timeout.
+`options.timeout` | `Double` _(Optional)_ Request timeout. Default is 15 seconds.
 `options.trustHost` | `Boolean` _(Optional)_ Trust SSL host. Host defined in `options.src` will be trusted. Ignored if `options.src` is undefined.
 `options.manifest` | `String` _(Optional)_ If specified the `copyRootApp` functionality will use the list of files contained in the manifest file during it's initial copy. {Android only}
+`options.validateSrc` | `Boolean` _(Optional)_ Whether to validate src url with a HEAD request before download (ios only, default true).
 
 #### Returns
 
@@ -68,7 +79,10 @@ Parameter | Description
 #### Example
 
 ```javascript
-var sync = ContentSync.sync({ src: 'http://myserver/app/1', id: 'app-1' });
+var sync = ContentSync.sync({
+        src: 'https://myserver/app/1',
+        id: 'app-1'
+});
 ```
 
 ### sync.on(event, callback)
@@ -120,7 +134,8 @@ The event `error` will trigger when an internal error occurs and the cache is ab
 
 Callback Parameter | Description
 ------------------ | -----------
-`e` | `Integer` Enumeration of `ERROR_STATE` to describe the current error
+`e.type` | `Integer` Enumeration of `ERROR_STATE` to describe the current error
+`e.responseCode` | `Integer` HTTP error code if available, `-1` otherwise
 
 #### Example
 
@@ -151,7 +166,10 @@ sync.on('cancel', function() {
 Cancels the content sync operation and triggers the cancel callback.
 
 ```javascript
-var sync = ContentSync.sync({ src: 'http://myserver/app/1', id: 'app-1' });
+var sync = ContentSync.sync({
+        src: 'https://myserver/app/1',
+        id: 'app-1'
+});
 
 sync.on('cancel', function() {
     console.log('content sync was cancelled');
@@ -211,6 +229,23 @@ The progress events described above also apply for these methods.
 ContentSync.PROGRESS_STATE[1] = 'Downloading the media content...';
 ```
 
+### ContentSync.loadUrl (cordova-ios > 4.x with cordova-plugin-wkwebview-engine)
+
+Use this API to load assets after extraction on **cordova-ios > 4.x** and **cordova-plugin-wkwebview-engine**. Do not use `document.location` as it probably won't work. Make sure to prefix your url with `file://`
+
+```javascript
+var sync = ContentSync.sync({
+        src: 'https://myserver/app/1',
+        id: 'app-1'
+});
+
+sync.on('complete', function(data) {
+    ContentSync.loadUrl('file://' + data.localPath, function() {
+        console.log('success');
+    });
+});
+```
+
 ## Working with the Native File System
 
 One of the main benefits of the content sync plugin is that it does not depend on the File or FileTransfer plugins. As a result the end user should not care where the ContentSync plugin stores it's files as long as it fills the requirements that it is private and removed when it's associated app is uninstalled.
@@ -218,11 +253,14 @@ One of the main benefits of the content sync plugin is that it does not depend o
 However, if you do need to use the File plugin to navigate the data downloaded by ContentSync you can use the following code snippet to get a [DirectoryEntry](https://cordova.apache.org/docs/en/3.0.0/cordova_file_file.md.html#DirectoryEntry) for the synced content.
 
 ```javascript
-var sync = ContentSync.sync({ src: 'http://myserver/assets/movie-1', id: 'movie-1' });
+var sync = ContentSync.sync({
+        src: 'https://myserver/app/1',
+        id: 'app-1'
+});
 
 sync.on('complete', function(data) {
     window.resolveLocalFileSystemURL("file://" + data.localPath, function(entry) {
-    	// entry is a DirectoryEntry object
+        // entry is a DirectoryEntry object
     }, function(error) {
         console.log("Error: " + error.code);
     });
@@ -253,11 +291,19 @@ The asset file system is pretty slow on Android so in order to speed up the init
 and if the file is placed in your apps `www` folder you would invoke it via:
 
 ```javascript
-var sync = ContentSync.sync({ src: 'http://myserver/assets/movie-1', id: 'movie-1',
-        copyRootApp: true, manifest: 'manifest.json' });
+var sync = ContentSync.sync({
+        src: 'https://myserver/app/1',
+        id: 'app-1',
+        copyRootApp: true,
+        manifest: 'manifest.json'
+});
 ```
 
 This results in the `copyRootApp` taking about a third of the time as when a manifest file is not specified.
+
+## Persistence of Synced Content
+
+Content downloaded via this plugin persists between runs of the application or reboots of the phone. The content will only be removed if the application is uninstalled or you use the File API to remove the location of the synched content.
 
 ## Native Requirements
 
@@ -318,4 +364,3 @@ or on-edit linting.
 [travis-ci-url]: http://travis-ci.org/phonegap/phonegap-plugin-contentsync
 [bithound-img]: https://www.bithound.io/github/phonegap/phonegap-plugin-contentsync/badges/score.svg
 [bithound-url]: https://www.bithound.io/github/phonegap/phonegap-plugin-contentsync
-
